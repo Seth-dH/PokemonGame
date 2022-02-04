@@ -2,17 +2,15 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum MoveType { Crouching, Walking, Sprinting, Falling};
+public enum MoveType { Crouching, Walking, Sprinting};
 
 public class PlayerMovement : MonoBehaviour
 {
     public MoveType moveType = MoveType.Walking;
-    MoveType lastMoveType;
 
     public float walkSpeed = 2f;
     public float sprintSpeed = 3.5f;
     public float crouchSpeed = 1.25f;
-    public float fallMoveSpeed = 0.5f;
 
     float moveSpeed = 0;
 
@@ -24,7 +22,6 @@ public class PlayerMovement : MonoBehaviour
     public CharacterController controller;
 
     Vector3 velocity;
-    Vector3 momentumVelocity;
 
     public Transform groundCheck;
     public float groundCheckDist = 0.4f;
@@ -36,7 +33,6 @@ public class PlayerMovement : MonoBehaviour
     {
         moveSpeed = walkSpeed;
         moveType = MoveType.Walking;
-        lastMoveType = MoveType.Walking;
     }
 
     private void changeMovementType(MoveType to)
@@ -65,13 +61,6 @@ public class PlayerMovement : MonoBehaviour
             moveSpeed = sprintSpeed;
             transform.localScale = new Vector3(1f, 1f, 1f);
 
-        }else if (to == MoveType.Falling)
-        {
-            if(moveType != MoveType.Falling)
-                lastMoveType = moveType;
-            moveType = MoveType.Falling;
-            moveSpeed = fallMoveSpeed;
-
         }
     }
 
@@ -79,61 +68,40 @@ public class PlayerMovement : MonoBehaviour
     {
         isGrounded = Physics.CheckSphere(groundCheck.position, groundCheckDist, walkableMask);
 
-        //select type of movement
-        if (!isGrounded)
+        if (Input.GetKey(KeyCode.LeftShift))
         {
-            changeMovementType(MoveType.Falling);
+            changeMovementType(MoveType.Sprinting);
         }
-        if(isGrounded && moveType == MoveType.Falling)
+        else if (moveType == MoveType.Sprinting && !Input.GetKey(KeyCode.LeftShift))
         {
-            changeMovementType(lastMoveType);
+            changeMovementType(MoveType.Walking);
+        }
+        if (Input.GetKeyDown(KeyCode.LeftControl))
+        {
+            changeMovementType(MoveType.Crouching);
+        }
+
+        if (isGrounded )
+        {
+            controller.stepOffset = 0.3f;
+            if(velocity.y < 0f)
+                velocity.y = -2f;
         }
         else
         {
-
-            if (Input.GetKey(KeyCode.LeftShift))
-            {
-                changeMovementType(MoveType.Sprinting);
-            }
-            else if (moveType == MoveType.Sprinting && !Input.GetKey(KeyCode.LeftShift))
-            {
-                changeMovementType(MoveType.Walking);
-            }
-            if (Input.GetKeyDown(KeyCode.LeftControl))
-            {
-                changeMovementType(MoveType.Crouching);
-            }
-        }
-
-        //move
-
-        if (isGrounded  && velocity.y < 0f)
-        {
-            velocity.y = -2f;
+            controller.stepOffset = 0.0f;
         }
 
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
-        float yVel = velocity.y;
 
-        if (isGrounded)
-        {
-            velocity = (transform.right * x + transform.forward * z) * moveSpeed;
-            velocity.y = yVel;
-            controller.Move(new Vector3(velocity.x, 0f, velocity.z) * Time.deltaTime);
-            momentumVelocity = velocity;
-            momentumVelocity.y = 0f;
-        }
-        else
-        {
-            velocity = (transform.right * x + transform.forward * z) * moveSpeed;
-            velocity.y = yVel;
+        Vector3 move = transform.right * x + transform.forward * z;
 
-            controller.Move((momentumVelocity + new Vector3(velocity.x, 0f, velocity.z)) * Time.deltaTime);
-        }
 
-        if (Input.GetButtonDown("Jump"))
+        controller.Move(move * Time.deltaTime * moveSpeed);
+
+        if (Input.GetButtonDown("Jump") && isGrounded)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * 2 * gravity);
         }
